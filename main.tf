@@ -59,6 +59,11 @@ resource "aws_s3_bucket_policy" "bucket_policy" {
   policy = data.aws_iam_policy_document.bucket_policy.json
 }
 
+# Tên S3 để CloudTrail lắng nghe sự kiện
+data "aws_s3_bucket" "important_bucket" {
+  bucket = "my-cloudtrail-important-bucket-duongpham"
+}
+
 # Tạo IAM role cho CloudTrail để gửi log tới CloudWatch Logs
 resource "aws_iam_role_policy" "cloudtrail_policy" {
   name = "CloudTrailPolicy"
@@ -103,19 +108,19 @@ resource "aws_cloudwatch_log_group" "cloudtrail_log_group" {
 
 # Tạo CloudTrail và cấu hình để gửi log tới CloudWatch Logs
 resource "aws_cloudtrail" "demo" {
-  name                          = "DemoCloudTrail"
-  s3_bucket_name                = aws_s3_bucket.cloudtrail_bucket.bucket
-  cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail_log_group.arn}:*"
-  cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail_role.arn
-  include_global_service_events = false
-  enable_logging                = true
-}
+  name                       = "DemoCloudTrail"
+  s3_bucket_name             = aws_s3_bucket.cloudtrail_bucket.bucket
+  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail_log_group.arn}:*"
+  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_role.arn
+  enable_logging             = true
 
-# Output thông tin cần thiết
-output "s3_bucket_name" {
-  value = aws_s3_bucket.cloudtrail_bucket.bucket
-}
+  event_selector {
+    read_write_type           = "All"
+    include_management_events = true
 
-output "cloudtrail_name" {
-  value = aws_cloudtrail.demo.name
+    data_resource {
+      type   = "AWS::S3::Object"
+      values = ["${data.aws_s3_bucket.important_bucket.arn}/"]
+    }
+  }
 }
